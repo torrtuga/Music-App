@@ -1,22 +1,31 @@
 package com.arqamahmad.musicapp;
 
+import android.app.Service;
+import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.IBinder;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import java.io.IOException;
 
-/**
- * Created by B on 8/23/2016.
- */
-public class Player {
+public class PlayerService extends Service {
 
     MediaPlayer mediaPlayer = new MediaPlayer();
-    public static Player player;
-    String url = "";
 
-    public Player() {
-        this.player = this;
+    public PlayerService() {
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        playStream(intent.getStringExtra("url"));
+        return START_NOT_STICKY; // Service will only run as long as music is being played.
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 
     public void playStream(String url){
@@ -44,7 +53,7 @@ public class Player {
             mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                 @Override
                 public void onCompletion(MediaPlayer mediaPlayer) {
-                    MainActivity.flipPlayPauseButton(false);
+                    flipPlayPauseButton(false);
                 }
             });
             mediaPlayer.prepareAsync(); //Take the media player in the background without interfaring foreground UI
@@ -57,7 +66,7 @@ public class Player {
     public void pausePlayer(){
         try{
             mediaPlayer.pause();
-            MainActivity.flipPlayPauseButton(false);
+            flipPlayPauseButton(false);
         }catch (Exception e){
             Log.d("EXCEPTION","failed to pause media player");
         }
@@ -65,7 +74,7 @@ public class Player {
     public void playPlayer(){
         try{
             mediaPlayer.start();
-            MainActivity.flipPlayPauseButton(true);
+            flipPlayPauseButton(true);
         }catch (Exception e){
             Log.d("EXCEPTION","failed to play media player");
         }
@@ -82,5 +91,12 @@ public class Player {
         }catch (Exception e){
             Log.d("EXCEPTION","failed to toggle mediaPlayer");
         }
+    }
+
+    public void flipPlayPauseButton(boolean isPlaying){
+        //communication with the main thread
+        Intent intent = new Intent("changePlayButton");
+        intent.putExtra("isPlaying",isPlaying);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);//Broadcast message sent
     }
 }

@@ -1,8 +1,12 @@
 package com.arqamahmad.musicapp;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
@@ -11,6 +15,15 @@ import android.view.View;
 
 public class MainActivity extends AppCompatActivity {
 
+    static FloatingActionButton playPauseButton;
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            boolean isPlaying = intent.getBooleanExtra("isPlaying",false);
+            flipPlayPauseButton(isPlaying);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -18,20 +31,41 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        playPauseButton = (FloatingActionButton) findViewById(R.id.fab);
+        playPauseButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
             }
         });
 
         String url = "http://arqamahmad.com/music_app/bensound-cute.mp3";
-        if (Player.player == null){
-            new Player();
+
+        Intent intent = new Intent(this,PlayerService.class);
+        intent.putExtra("url",url);
+        startService(intent);
+    }
+
+    public static void flipPlayPauseButton(boolean isPlaying){
+        if(isPlaying == true){
+            playPauseButton.setImageResource(android.R.drawable.ic_media_pause);
         }
-        Player.player.playStream(url);
+        else{
+            playPauseButton.setImageResource(android.R.drawable.ic_media_play);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        //Receiving Broadcast receiver. Takes the Intent with that name and send it to mMessageReceiver
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+                new IntentFilter("changePlayButton"));
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
     }
 
     @Override
