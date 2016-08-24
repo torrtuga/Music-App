@@ -1,10 +1,13 @@
 package com.arqamahmad.musicapp;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
@@ -16,6 +19,23 @@ import android.view.View;
 public class MainActivity extends AppCompatActivity {
 
     static FloatingActionButton playPauseButton;
+
+    PlayerService mBoundService;
+    boolean mServiceBound = false;
+    private ServiceConnection mServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            PlayerService.MyBinder myBinder = (PlayerService.MyBinder) iBinder;
+            mBoundService = myBinder.getService();
+            mServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mServiceBound = false;
+        }
+    };
+
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -35,14 +55,30 @@ public class MainActivity extends AppCompatActivity {
         playPauseButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if(mServiceBound){
+                    mBoundService.togglePlayer();//activity talking to service
+                }
             }
         });
 
-        String url = "http://arqamahmad.com/music_app/bensound-cute.mp3";
+        startStreamingService("http://arqamahmad.com/music_app/bensound-cute.mp3");
+    }
 
+    public void startStreamingService(String url){
         Intent intent = new Intent(this,PlayerService.class);
         intent.putExtra("url",url);
+        intent.setAction(Constants.ACTION.STARTFOREGROUND_ACTION);
         startService(intent);
+        bindService(intent,mServiceConnection,Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if(mServiceBound){
+            unbindService(mServiceConnection);
+            mServiceBound = false;
+        }
     }
 
     public static void flipPlayPauseButton(boolean isPlaying){
