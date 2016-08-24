@@ -46,6 +46,7 @@ public class PlayerService extends Service {
         }
         else if(intent.getAction().equals(Constants.ACTION.PLAY_ACTION)){
             Log.i("info","Play Pressed");
+            togglePlayer();
         }
         else if(intent.getAction().equals(Constants.ACTION.NEXT_ACTION)){
             Log.i("info","Next Pressed");
@@ -60,6 +61,7 @@ public class PlayerService extends Service {
 
     }
 
+
     private void showNotification(){
         Intent notificationIntent = new Intent(this,MainActivity.class);
         notificationIntent.setAction(Constants.ACTION.MAIN_ACTION);
@@ -68,15 +70,15 @@ public class PlayerService extends Service {
         //notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         PendingIntent pendingIntent = PendingIntent.getActivity(this,0,notificationIntent,0); //Allow the action to happen as though the main user (MainActivity) is calling.
 
-        Intent previousIntent = new Intent(this,MainActivity.class);
+        Intent previousIntent = new Intent(this,PlayerService.class);
         notificationIntent.setAction(Constants.ACTION.PREV_ACTION);
         PendingIntent ppreviousIntent = PendingIntent.getActivity(this,0,previousIntent,0);
 
-        Intent playIntent = new Intent(this,MainActivity.class);
+        Intent playIntent = new Intent(this,PlayerService.class);
         notificationIntent.setAction(Constants.ACTION.PLAY_ACTION);
         PendingIntent pplayIntent = PendingIntent.getActivity(this,0,playIntent,0);
 
-        Intent nextIntent = new Intent(this,MainActivity.class);
+        Intent nextIntent = new Intent(this,PlayerService.class);
         notificationIntent.setAction(Constants.ACTION.NEXT_ACTION);
         PendingIntent pnextIntent = PendingIntent.getActivity(this,0,nextIntent,0);
 
