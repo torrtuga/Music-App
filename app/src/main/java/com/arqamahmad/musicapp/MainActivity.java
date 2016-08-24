@@ -12,9 +12,22 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ListView;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -22,6 +35,9 @@ public class MainActivity extends AppCompatActivity {
 
     PlayerService mBoundService;
     boolean mServiceBound = false;
+    List<Song> songs = new ArrayList<Song>();
+    ListView songsListView;
+
     private ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
@@ -61,7 +77,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        startStreamingService("http://arqamahmad.com/music_app/bensound-cute.mp3");
+        //startStreamingService("http://arqamahmad.com/music_app/bensound-cute.mp3");
+        songsListView = (ListView) findViewById(R.id.listView);
+        fetchSongsFromWeb();
     }
 
     public void startStreamingService(String url){
@@ -124,5 +142,85 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void fetchSongsFromWeb() {
+        //Things should be not be done in main thread
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection urlConnection = null;
+                InputStream inputStream = null;
+
+                try{
+                    URL url = new URL("http://arqamahmad.com/music_app/getmusic.php");
+                    urlConnection = (HttpURLConnection) url.openConnection();
+                    urlConnection.setRequestMethod("GET");
+
+                    int statusCode = urlConnection.getResponseCode();
+                    if(statusCode == 200){
+                        inputStream = new BufferedInputStream(urlConnection.getInputStream());
+                        String response = convertInputStreamToString(inputStream);
+                        Log.i("Got Songs",response);
+                        parseIntoSongs(response);
+                    }
+
+                }catch (Exception e){
+                    e.printStackTrace();
+                }finally {
+                    if(urlConnection != null){
+                        urlConnection.disconnect();
+                    }
+                }
+            }
+        });
+        thread.start();
+    }
+
+    private String convertInputStreamToString (InputStream inputStream) throws IOException{
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+
+        String line ="";
+        String result = "";
+
+        while((line = bufferedReader.readLine()) != null){
+            result += line;
+        }
+        if(inputStream != null){
+            inputStream.close();
+        }
+        return result;
+    }
+
+    private void parseIntoSongs (String data){
+        String[] dataArray = data.split("\\*");  //Backslash added because * is also used in RE
+        int i=0;
+        for (i=0;i<dataArray.length;i++){
+            String[] songArray = dataArray[i].split(",");
+            Song song = new Song(songArray[0],songArray[1],songArray[2],songArray[3]);
+            songs.add(song); //the ArrayList that we created above
+        }
+        for(i=0;i<songs.size();i++){
+            Log.i("Got Song", songs.get(i).getTitle());
+        }
+        populateSongsListView();
+    }
+
+    private void populateSongsListView(){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                SongListAdapter adapter = new SongListAdapter(MainActivity.this,songs);
+                songsListView.setAdapter(adapter);
+                songsListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                        Song song = songs.get(i);
+                        String songAddress = "http://arqamahmad.com/music_app/" + song.getTitle();
+                        startStreamingService(songAddress);
+                    }
+                });
+            }
+        });
     }
 }

@@ -3,7 +3,11 @@ package com.arqamahmad.musicapp;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -61,7 +65,6 @@ public class PlayerService extends Service {
 
     }
 
-
     private void showNotification(){
         Intent notificationIntent = new Intent(this,MainActivity.class);
         notificationIntent.setAction(Constants.ACTION.MAIN_ACTION);
@@ -82,17 +85,23 @@ public class PlayerService extends Service {
         notificationIntent.setAction(Constants.ACTION.NEXT_ACTION);
         PendingIntent pnextIntent = PendingIntent.getActivity(this,0,nextIntent,0);
 
-        //Bitmap icon = BitmapFactory.decodeResource(getResources(),R.drawable.notification_image);
+        Bitmap icon = BitmapFactory.decodeResource(getResources(),R.drawable.notification_image);
+
+        int playPauseButtonId = android.R.drawable.ic_media_play;
+        if(mediaPlayer != null && mediaPlayer.isPlaying()){
+            playPauseButtonId = android.R.drawable.ic_media_pause;
+        }
+
         Notification notification = new NotificationCompat.Builder(this)
                 .setContentTitle("Music Player")
                 .setTicker("Playing Music")
                 .setContentText("My Song")
                 .setSmallIcon(R.drawable.notification_image)
-                .setLargeIcon(BitmapFactory.decodeResource(getResources(),R.drawable.notification_image))
+                .setLargeIcon(Bitmap.createScaledBitmap(icon,128,128,false))
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
                 .addAction(android.R.drawable.ic_media_previous,"Previous",ppreviousIntent)
-                .addAction(android.R.drawable.ic_media_play,"Play",pplayIntent)
+                .addAction(playPauseButtonId,"Play",pplayIntent)
                 .addAction(android.R.drawable.ic_media_next,"Next",pnextIntent)
                 .build();
 
@@ -144,14 +153,17 @@ public class PlayerService extends Service {
         try{
             mediaPlayer.pause();
             flipPlayPauseButton(false);
+            showNotification();
+            unregisterReceiver(noisyAudioStreamReceiver);
         }catch (Exception e){
             Log.d("EXCEPTION","failed to pause media player");
         }
     }
     public void playPlayer(){
         try{
-            mediaPlayer.start();
+            getAudioFocusAndPlay();
             flipPlayPauseButton(true);
+            showNotification();
         }catch (Exception e){
             Log.d("EXCEPTION","failed to play media player");
         }
@@ -176,4 +188,55 @@ public class PlayerService extends Service {
         intent.putExtra("isPlaying",isPlaying);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);//Broadcast message sent
     }
+
+    //audiofocus
+    private AudioManager audioManager;
+    private boolean playingBeforeInterruptoin = false;
+    public void getAudioFocusAndPlay (){
+        audioManager = (AudioManager)this.getBaseContext().getSystemService(Context.AUDIO_SERVICE);
+
+        //request audio focus
+        int result = audioManager.requestAudioFocus(audioFocusChangeListener,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN);
+        if(result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED){
+            mediaPlayer.start();
+            registerReceiver(noisyAudioStreamReceiver,intentFilter);
+        }
+    }
+
+    AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = new AudioManager.OnAudioFocusChangeListener(){
+        @Override
+        public void onAudioFocusChange(int i) {
+            if(i == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT){
+                if(mediaPlayer.isPlaying()){
+                    playingBeforeInterruptoin = true;
+                }
+                else {
+                    playingBeforeInterruptoin = false;
+                }
+                pausePlayer();
+            }else if(i == AudioManager.AUDIOFOCUS_GAIN){
+                if(playingBeforeInterruptoin) {
+                    playPlayer();
+                }
+            }else if(i == AudioManager.AUDIOFOCUS_LOSS){
+                pausePlayer();
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
+        }
+    };
+
+    //audio rerouted
+    private class NoisyAudioStreamReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())){
+                pausePlayer();
+            }
+        }
+    }
+
+    //when removing headphone
+    private IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+    private NoisyAudioStreamReceiver noisyAudioStreamReceiver = new NoisyAudioStreamReceiver();
+
 }
