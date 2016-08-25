@@ -3,6 +3,7 @@ package com.arqamahmad.musicapp;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -10,6 +11,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -218,9 +220,88 @@ public class MainActivity extends AppCompatActivity {
                         Song song = songs.get(i);
                         String songAddress = "http://arqamahmad.com/music_app/" + song.getTitle();
                         startStreamingService(songAddress);
+                        markSongPlayed(song.getId());
+                        askForLikes(song);
                     }
                 });
             }
         });
+    }
+
+    //Keep track of when a song is played for numPlays
+    private void markSongPlayed(final int chosenId){
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                InputStream inputStream = null;
+                HttpURLConnection urlConnection = null;
+
+                try{
+                    URL url = new URL("http://arqamahmad.com/music_app/add_play.php?id=" + Integer.toString(chosenId));
+                    urlConnection =(HttpURLConnection) url.openConnection();
+                    urlConnection.setRequestMethod("GET");
+
+                    int statusCode = urlConnection.getResponseCode();
+                    if(statusCode == 200){
+                        inputStream = new BufferedInputStream(urlConnection.getInputStream());
+                        String response = convertInputStreamToString(inputStream);
+                        Log.i("Played Song Id : ", response);
+                    }
+                }catch (Exception e){
+                    e.printStackTrace();
+                }finally {
+                    if(urlConnection != null){
+                        urlConnection.disconnect();
+                    }
+                }
+            }
+        });
+        thread.start();
+    }
+
+    //Method for alert box asking likes
+    private void askForLikes (final Song song){
+        new AlertDialog.Builder(this)
+                .setTitle(song.getTitle())
+                .setMessage("Do you like this song?")
+                .setPositiveButton("YES!", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        likeSong(song.getId()); //made the song final to access here
+                    }
+                })
+                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
+    //Method for increasing likes by calling the php script
+    private void likeSong(final int chosenId){
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                InputStream inputStream = null;
+                HttpURLConnection urlConnection = null;
+
+                try{
+                    URL url = new URL("http://arqamahmad.com/music_app/add_like.php?id=" + Integer.toString(chosenId));
+                    urlConnection =(HttpURLConnection) url.openConnection();
+                    urlConnection.setRequestMethod("GET");
+                    urlConnection.getResponseCode();
+                }catch (Exception e){
+                    e.printStackTrace();
+                }finally {
+                    if(urlConnection != null){
+                        urlConnection.disconnect();
+                    }
+                }
+            }
+        });
+        thread.start();
     }
 }

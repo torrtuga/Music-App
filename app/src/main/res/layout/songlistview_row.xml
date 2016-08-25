@@ -9,6 +9,8 @@
         android:id="@+id/songsRowTextview"
         android:layout_marginLeft="10dp"
         android:layout_marginTop="10dp"
-        android:text="Test Text"/>
+        android:text="Test Text"
+        android:minHeight="?android:attr/listPreferredItemHeight"
+        android:textAppearance="?android:attr/textAppearanceLarge"/>
 
 </LinearLayout>

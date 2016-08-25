@@ -50,6 +50,7 @@ public class SongListAdapter extends BaseAdapter {
             Song song = songs.get(i);
 
             title.setText(song.getTitle());
+
         }
         return v;
     }
